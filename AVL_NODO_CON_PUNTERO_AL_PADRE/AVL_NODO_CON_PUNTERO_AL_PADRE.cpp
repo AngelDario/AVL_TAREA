@@ -10,10 +10,12 @@ struct NODE {
 	T valor;
 	int peso;
 
+	NODE<T>* padre;
 	NODE<T>* nodes[2];
 
-	NODE(T _valor) : valor(_valor) {
+	NODE(T _valor, NODE<T>* _padre = 0) : valor(_valor) {
 		peso = 0;
+		padre = _padre;
 		nodes[0] = nodes[1] = 0;
 	}
 
@@ -43,18 +45,6 @@ public:
 		delete k;
 	}
 
-	bool find(T x, NODE<T>**& p, NODE<T>**& list, int& cont) {
-		p = &m_root;
-		list[cont] = *p;
-
-		while (*p && (*p)->valor != x) {
-			p = &((*p)->nodes[x > (*p)->valor]);
-			cont++;
-			list[cont] = *p;
-		}
-		return *p != 0;
-	}
-
 	bool find(T x, NODE<T>**& p) {
 		p = &m_root;
 
@@ -64,116 +54,186 @@ public:
 		return *p != 0;
 	}
 
-	bool insert(T x) {
-		NODE<T>** p;
-		NODE<T>** list = new NODE<T> * [100];
-		int cont = 0;
+	bool find(T x, NODE<T>**& padre, NODE<T>**& hijo) {
+		padre = &m_root;
+		hijo = &m_root;
 
-		if (find(x, p, list, cont)) {
+		while (*hijo && (*hijo)->valor != x) {
+			if (*hijo != m_root)
+				padre = &((*padre)->nodes[x > (*padre)->valor]);
+			hijo = &((*hijo)->nodes[x > (*hijo)->valor]);
+		}
+		return *hijo != 0;
+	}
+
+	bool insert(T x) {
+		NODE<T>** padre;
+		NODE<T>** hijo;
+
+		if (find(x, padre, hijo)) {
 			return 0;
 		}
+		
+		if (padre != hijo) {
+			*hijo = new NODE<T>(x, *padre);
+		}
+		else {
+			*hijo = new NODE<T>(x, NULL);
+		}
 
-		*p = new NODE<T>(x);
-		list[cont] = *p;
+		for (NODE<T>** i = hijo; *i != m_root; i = &(*i)->padre) {
+			NODE<T>* A = (*i)->padre;
+			NODE<T>* B = *i;
 
-		for (int i = cont; i > 0; i--) {
-			list[i - 1]->addPeso(!(list[i] == list[i - 1]->nodes[0]));
-			if (list[i - 1]->peso == 0)
+			A->addPeso(!(B == A->nodes[0]));
+			if (A->peso == 0)
 				break;
-			if (list[i - 1]->peso == 2 || list[i - 1]->peso == -2) {
-				if (list[i - 1]->peso == 2) {
-					if (list[i - 1]->nodes[1]->peso == 1) {
-						list[i-1]->nodes[1] = list[i]->nodes[0];
-						list[i]->nodes[0] = list[i - 1];
-						if (!(i - 1 == 0)) {
-							if (list[i - 2]->nodes[0] == list[i - 1]) {
-								list[i - 2]->nodes[0] = list[i];
+			if (A->peso == 2 || A->peso == -2) {
+				if (A->peso == 2) {
+					if (B->peso == 1) {
+						NODE<T>* C = B->nodes[1];
+						A->nodes[1] = B->nodes[0];
+						if (B->nodes[0]) {
+							(B->nodes[0])->padre = A;
+						}
+						B->nodes[0] = A;
+						if (!(A->padre == NULL)) {
+							if (A->padre->nodes[0] == A) {
+								A->padre->nodes[0] = B;
+								B->padre = A->padre;
+								A->padre = B;
 							}
 							else {
-								list[i - 2]->nodes[1] = list[i];
+								A->padre->nodes[1] = B;
+								B->padre = A->padre;
+								A->padre = B;
 							}
 						}
 						else {
-							m_root = list[i];
+							B->padre = A->padre;
+							A->padre = B;
+							m_root = B;
 						}
-						list[i - 1]->peso = 0;
-						list[i]->peso = 0;
+						A->peso = 0;
+						B->peso = 0;
 					}
-					else if (list[i - 1]->nodes[1]->peso == -1) {
-						list[i - 1]->nodes[1] = list[i + 1]->nodes[0];
-						list[i]->nodes[0] = list[i + 1]->nodes[1];
-						list[i + 1]->nodes[0] = list[i - 1];
-						list[i + 1]->nodes[1] = list[i];
-						if (!(i - 1 == 0)) {
-							if (list[i - 2]->nodes[0] == list[i - 1]) {
-								list[i - 2]->nodes[0] = list[i + 1];
+					else if (B->peso == -1) {
+						NODE<T>* C = B->nodes[0];
+						A->nodes[1] = C->nodes[0];
+						if (C->nodes[0]) {
+							(C->nodes[0])->padre = A;
+						}
+						B->nodes[0] = C->nodes[1];
+						if (C->nodes[1]) {
+							(C->nodes[1])->padre = B;
+						}
+						C->nodes[0] = A;
+						C->nodes[1] = B;
+						if (!(A->padre == NULL)) {
+							if (A->padre->nodes[0] == A) {
+								A->padre->nodes[0] = C;
+								C->padre = A->padre;
+								A->padre = C;
+								B->padre = C;
 							}
 							else {
-								list[i - 2]->nodes[1] = list[i + 1];
+								A->padre->nodes[1] = C;
+								C->padre = A->padre;
+								A->padre = C;
+								B->padre = C;
 							}
 						}
 						else {
-							m_root = list[i + 1];
+							C->padre = A->padre;
+							A->padre = C;
+							B->padre = C;
+							m_root = C;
 						}
-						if (list[i + 1]->peso == -1) {
-							list[i]->peso = 0;
-							list[i - 1]->peso = 1;
+						if (C->peso == -1) {
+							B->peso = 0;
+							A->peso = 1;
 						}
-						else if (list[i + 1]->peso == 0) {
-							list[i]->peso = 0;
-							list[i - 1]->peso = 0;
+						else if (C->peso == 0) {
+							B->peso = 0;
+							A->peso = 0;
 						}
-						else if (list[i+1]->peso == 1) {
-							list[i]->peso = -1;
-							list[i - 1]->peso = 0;
+						else if (C->peso == 1) {
+							B->peso = -1;
+							A->peso = 0;
 						}
 					}
 				}
-				else if (list[i - 1]->peso == -2) {
-					if (list[i - 1]->nodes[0]->peso == -1) {
-						list[i - 1]->nodes[0] = list[i]->nodes[1];
-						list[i]->nodes[1] = list[i - 1];
-						if (!(i - 1 == 0)) {
-							if (list[i - 2]->nodes[0] == list[i - 1]) {
-								list[i - 2]->nodes[0] = list[i];
+				else if (A->peso == -2) {
+					if (B->peso == -1) {
+						NODE<T>* C = B->nodes[0];
+						A->nodes[0] = B->nodes[1];
+						if (B->nodes[1]) {
+							(B->nodes[1])->padre = A;
+						}
+						B->nodes[1] = A;
+						if (!(A->padre == NULL)) {
+							if (A->padre->nodes[0] == A) {
+								A->padre->nodes[0] = B;
+								B->padre = A->padre;
+								A->padre = B;
 							}
 							else {
-								list[i - 2]->nodes[1] = list[i];
+								A->padre->nodes[1] = B;
+								B->padre = A->padre;
+								A->padre = B;
 							}
 						}
 						else {
-							m_root = list[i];
+							B->padre = A->padre;
+							A->padre = B;
+							m_root = B;
 						}
-						list[i - 1]->peso = 0;
-						list[i]->peso = 0;
+						A->peso = 0;
+						B->peso = 0;
 					}
-					else if (list[i - 1]->nodes[0]->peso == 1) {
-						list[i]->nodes[1] = list[i + 1]->nodes[0];
-						list[i - 1]->nodes[0] = list[i + 1]->nodes[1];
-						list[i + 1]->nodes[0] = list[i];
-						list[i + 1]->nodes[1] = list[i - 1];
-						if (!(i - 1 == 0)) {
-							if (list[i - 2]->nodes[0] == list[i - 1]) {
-								list[i - 2]->nodes[0] = list[i + 1];
+					else if (B->peso == 1) {
+						NODE<T>* C = B->nodes[1];
+						A->nodes[0] = C->nodes[1];
+						if (C->nodes[1]) {
+							(C->nodes[1])->padre = A;
+						}
+						B->nodes[1] = C->nodes[0];
+						if (C->nodes[0]) {
+							(C->nodes[0])->padre = B;
+						}
+						C->nodes[0] = B;
+						C->nodes[1] = A;
+						if (!(A->padre == NULL)) {
+							if (A->padre->nodes[0] == A) {
+								A->padre->nodes[0] = C;
+								C->padre = A->padre;
+								A->padre = C;
+								B->padre = C;
 							}
 							else {
-								list[i - 2]->nodes[1] = list[i + 1];
+								A->padre->nodes[1] = C;
+								C->padre = A->padre;
+								A->padre = C;
+								B->padre = C;
 							}
 						}
 						else {
-							m_root = list[i + 1];
+							C->padre = A->padre;
+							A->padre = C;
+							B->padre = C;
+							m_root = C;
 						}
-						if (list[i + 1]->peso == -1) {
-							list[i]->peso = 0;
-							list[i - 1]->peso = 1;
+						if (C->peso == -1) {
+							B->peso = 0;
+							A->peso = 1;
 						}
-						else if (list[i + 1]->peso == 0) {
-							list[i]->peso = 0;
-							list[i - 1]->peso = 0;
+						else if (C->peso == 0) {
+							B->peso = 0;
+							A->peso = 0;
 						}
-						else if (list[i + 1]->peso == 1) {
-							list[i]->peso = -1;
-							list[i - 1]->peso = 0;
+						else if (C->peso == 1) {
+							B->peso = -1;
+							A->peso = 0;
 						}
 					}
 				}
@@ -313,7 +373,7 @@ void menu(CTREE<T>& arbol) {
 	cout << "3. Postorder \n";
 	cout << "4. Reverse \n";
 	cout << "5. Por Niveles \n";
-	
+
 	cin >> orden;
 
 	while (1) {
@@ -363,4 +423,5 @@ int main()
 	menu<int>(arbol);
 
 	return 0;
+
 }
